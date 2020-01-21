@@ -37,7 +37,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (0, 2, 0),
+        "version" : (0, 3, 0),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -160,7 +160,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             tex_coords = material_tree.nodes.new("ShaderNodeTexCoord")
             tex_coords.location = (-400, 0)
             fanout = material_tree.nodes.new("NodeReroute")
-            fanout.location = (-200, 0)
+            fanout.location = (-200, -150)
             material_tree.links.new(tex_coords.outputs["UV"], fanout.inputs[0])
               # fanout makes it easy to change this coordinate source for all
               # texture components at once
@@ -181,8 +181,10 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     tex_image
             #end new_map_image
 
-            for map in (MAP.DIFFUSE, MAP.SPECULAR) : # TBD add more later
-              # note MAP.DISPLACEMENT handled specially below
+            for map in (MAP.DIFFUSE, MAP.SPECULAR, MAP.ROUGHNESS, MAP.NORMAL) :
+              # Go according to ordering of input nodes on Principled BSDF,
+              # to avoid wires crossing.
+              # Also note MAP.DISPLACEMENT handled specially below.
                 if map in components :
                     tex_image = new_map_image(map)
                     material_tree.links.new \
