@@ -158,8 +158,8 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                 material_tree.nodes.remove(node)
             #end for
             main_shader = material_tree.nodes.new("ShaderNodeBsdfPrincipled")
-            main_shader.location = (150, 0)
-            map_location = [50, 0]
+            main_shader.location = (300, 0)
+            map_location = [0, 300]
 
             def new_map_image(map) :
                 image = bpy.data.images.load(components[map])
@@ -168,7 +168,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                 tex_image = material_tree.nodes.new("ShaderNodeTexImage")
                 tex_image.image = image
                 tex_image.location = tuple(map_location)
-                map_location[1] += 50
+                map_location[1] -= 300
                 return \
                     tex_image
             #end new_map_image
@@ -185,7 +185,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                 #end for
             #end for
             material_output = material_tree.nodes.new("ShaderNodeOutputMaterial")
-            material_output.location = (200, 0)
+            material_output.location = (600, 0)
             material_tree.links.new(main_shader.outputs[0], material_output.inputs[0])
             if MAP.DISPLACEMENT in components :
                 tex_image = new_map_image(MAP.DISPLACEMENT)
