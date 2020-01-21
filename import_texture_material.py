@@ -28,16 +28,14 @@ import subprocess
 import tempfile
 import shutil
 import bpy
-from bpy.props import \
-    CollectionProperty, \
-    StringProperty
+import bpy.props
 import bpy_extras.io_utils
 
 bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (0, 4, 0),
+        "version" : (0, 5, 0),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -115,11 +113,36 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
     bl_idname = "material.import_texture"
     bl_label = "Import Texture Material"
 
-    files : CollectionProperty \
+    files : bpy.props.CollectionProperty \
       (
         name = "File Path",
         description = "Texture Archive File",
         type = bpy.types.OperatorFileListElement
+      )
+    use_normals : bpy.props.BoolProperty \
+      (
+        name = "Normal Map",
+        description = "use normal map in material, if available",
+        default = True
+      )
+    use_roughness : bpy.props.BoolProperty \
+      (
+        name = "Roughness Map",
+        description = "use roughness map in material, if available",
+        default = True
+      )
+    use_displacement : bpy.props.EnumProperty \
+      (
+        name = "Use Displacement",
+        description = "use displacement map, if available",
+        items =
+            (
+                ("no", "No", "don’t use displacement map"),
+                ("material", "In Material", "as part of material definition"),
+                ("texture", "In Texture",
+                    "as part of separate texture definition, for use in displacement modifier"),
+            ),
+        default = "no",
       )
 
     def execute(self, context) :
@@ -136,6 +159,14 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
               (
                 (m.namestr, MAP[k]) for k, m in MAP.__members__.items()
               )
+            load_component = \
+                {
+                    MAP.DIFFUSE : True,
+                    MAP.SPECULAR : True,
+                    MAP.NORMAL : self.use_normals,
+                    MAP.ROUGHNESS : self.use_roughness,
+                    MAP.DISPLACEMENT : self.use_displacement != "no",
+                }
             components = {}
             name_pat = r"^.+_([a-zA-Z]+)_(\d+)k\..+$"
             img_size = None
@@ -150,7 +181,10 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                         assert this_size == img_size
                     #end if
                     if namestr in by_namestr :
-                        components[by_namestr[namestr]] = os.path.join(temp_dir, item)
+                        map = by_namestr[namestr]
+                        if load_component.get(map, False) :
+                            components[map] = os.path.join(temp_dir, item)
+                        #end if
                     #end if
                 #end if
             #end for
@@ -179,13 +213,19 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             main_shader.location = (400, 0)
             map_location = [0, 200]
 
-            def new_map_image(map) :
+            def load_image(map) :
                 image = bpy.data.images.load(components[map])
                 image.name = "%s_%s" % (material_name, map.namestr)
                 if not map.is_colour :
                     image.colorspace_settings.name = "Non-Color"
                 #end if
                 image.pack()
+                return \
+                    image
+            #end load_image
+
+            def new_image_texture_node(map) :
+                image = load_image(map)
                 tex_image = material_tree.nodes.new("ShaderNodeTexImage")
                 tex_image.image = image
                 tex_image.location = tuple(map_location)
@@ -193,14 +233,14 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                 map_location[1] -= 300
                 return \
                     tex_image
-            #end new_map_image
+            #end new_image_texture_node
 
             for map in (MAP.DIFFUSE, MAP.SPECULAR, MAP.ROUGHNESS, MAP.NORMAL) :
               # Go according to ordering of input nodes on Principled BSDF,
               # to avoid wires crossing.
               # Also note MAP.DISPLACEMENT handled specially below.
                 if map in components :
-                    tex_image = new_map_image(map)
+                    tex_image = new_image_texture_node(map)
                     material_tree.links.new \
                       (
                         tex_image.outputs["Color"],
@@ -211,8 +251,8 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             material_output = material_tree.nodes.new("ShaderNodeOutputMaterial")
             material_output.location = (750, 0)
             material_tree.links.new(main_shader.outputs[0], material_output.inputs[0])
-            if MAP.DISPLACEMENT in components :
-                tex_image = new_map_image(MAP.DISPLACEMENT)
+            if self.use_displacement == "material" and MAP.DISPLACEMENT in components :
+                tex_image = new_image_texture_node(MAP.DISPLACEMENT)
                 material_tree.links.new \
                   (
                     tex_image.outputs["Color"],
@@ -220,6 +260,11 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                   )
             #end if
             deselect_all(material_tree)
+            if self.use_displacement == "texture" and MAP.DISPLACEMENT in components :
+                image = load_image(MAP.DISPLACEMENT)
+                tex = bpy.data.textures.new(image.name, "IMAGE")
+                tex.image = image
+            #end if
             # all done
             status = {"FINISHED"}
         except Failure as why :
