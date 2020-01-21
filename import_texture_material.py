@@ -216,7 +216,6 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             material_tree.links.new(tex_coords.outputs["UV"], tex_mapping.inputs["Vector"])
             fanout = material_tree.nodes.new("NodeReroute")
             fanout.location = (-200, -150)
-            fanout.label = "Fanout"
             material_tree.links.new(tex_mapping.outputs["Vector"], fanout.inputs[0])
               # fanout makes it easy to change this coordinate source for all
               # texture components at once
