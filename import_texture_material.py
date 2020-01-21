@@ -196,7 +196,6 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     #end if
                 #end if
             #end for
-            sys.stderr.write("found components: %s\n" % repr(components)) # debug
             if MAP.NORMAL in components :
                 # prefer normal over bump map
                 components.pop(MAP.BUMP, None)
