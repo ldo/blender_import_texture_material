@@ -35,7 +35,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (0, 6, 0),
+        "version" : (0, 7, 0),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -120,6 +120,18 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
         description = "Texture Archive File",
         type = bpy.types.OperatorFileListElement
       )
+    use_diffuse : bpy.props.BoolProperty \
+      (
+        name = "Diffuse Colour",
+        description = "use diffuse colour in material, if available",
+        default = True
+      )
+    use_specular : bpy.props.BoolProperty \
+      (
+        name = "Specular Colour",
+        description = "use specular colour in material, if available",
+        default = True
+      )
     use_normals : bpy.props.BoolProperty \
       (
         name = "Normal Map",
@@ -168,8 +180,8 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
               )
             load_component = \
                 {
-                    MAP.DIFFUSE : True,
-                    MAP.SPECULAR : True,
+                    MAP.DIFFUSE : self.use_diffuse,
+                    MAP.SPECULAR : self.use_specular,
                     MAP.NORMAL : self.use_normals,
                     MAP.BUMP : self.use_bump,
                     MAP.ROUGHNESS : self.use_roughness,
