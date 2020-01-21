@@ -35,7 +35,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (0, 5, 0),
+        "version" : (0, 6, 0),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -100,6 +100,7 @@ class MAP(enum.Enum) :
       # 'Emission', 'Alpha', 'Normal', 'Clearcoat Normal', 'Tangent']
         return \
             {
+                MAP.BUMP : "Normal", # after putting through a Bump node
                 MAP.DIFFUSE : "Base Color",
                 MAP.ROUGHNESS : "Roughness",
                 MAP.NORMAL : "Normal",
@@ -123,6 +124,12 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
       (
         name = "Normal Map",
         description = "use normal map in material, if available",
+        default = True
+      )
+    use_bump : bpy.props.BoolProperty \
+      (
+        name = "Bump Map",
+        description = "use bump map in material, if available",
         default = True
       )
     use_roughness : bpy.props.BoolProperty \
@@ -164,6 +171,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     MAP.DIFFUSE : True,
                     MAP.SPECULAR : True,
                     MAP.NORMAL : self.use_normals,
+                    MAP.BUMP : self.use_bump,
                     MAP.ROUGHNESS : self.use_roughness,
                     MAP.DISPLACEMENT : self.use_displacement != "no",
                 }
@@ -189,6 +197,10 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                 #end if
             #end for
             sys.stderr.write("found components: %s\n" % repr(components)) # debug
+            if MAP.NORMAL in components :
+                # prefer normal over bump map
+                components.pop(MAP.BUMP, None)
+            #end if
             material_name = os.path.splitext(os.path.basename(self.filepath))[0]
             material = bpy.data.materials.new(material_name)
             # material.diffuse_color?
@@ -210,7 +222,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
               # fanout makes it easy to change this coordinate source for all
               # texture components at once
             main_shader = material_tree.nodes.new("ShaderNodeBsdfPrincipled")
-            main_shader.location = (400, 0)
+            main_shader.location = (500, 0)
             map_location = [0, 200]
 
             def load_image(map) :
@@ -235,21 +247,34 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     tex_image
             #end new_image_texture_node
 
-            for map in (MAP.DIFFUSE, MAP.SPECULAR, MAP.ROUGHNESS, MAP.NORMAL) :
+            for map in (MAP.DIFFUSE, MAP.SPECULAR, MAP.ROUGHNESS, MAP.NORMAL, MAP.BUMP) :
               # Go according to ordering of input nodes on Principled BSDF,
               # to avoid wires crossing.
               # Also note MAP.DISPLACEMENT handled specially below.
                 if map in components :
+                    bump_location = tuple(map_location)
                     tex_image = new_image_texture_node(map)
+                    if map == MAP.BUMP :
+                        bump_convert = material_tree.nodes.new("ShaderNodeBump")
+                        bump_convert.location = (bump_location[0] + 300, bump_location[1])
+                        material_tree.links.new \
+                          (
+                            tex_image.outputs["Color"],
+                            bump_convert.inputs["Height"]
+                          )
+                        output_terminal = bump_convert.outputs["Normal"]
+                    else :
+                        output_terminal = tex_image.outputs["Color"]
+                    #end if
                     material_tree.links.new \
                       (
-                        tex_image.outputs["Color"],
+                        output_terminal,
                         main_shader.inputs[map.principled_bsdf_input_name]
                       )
                 #end for
             #end for
             material_output = material_tree.nodes.new("ShaderNodeOutputMaterial")
-            material_output.location = (750, 0)
+            material_output.location = (850, 0)
             material_tree.links.new(main_shader.outputs[0], material_output.inputs[0])
             if self.use_displacement == "material" and MAP.DISPLACEMENT in components :
                 tex_image = new_image_texture_node(MAP.DISPLACEMENT)
