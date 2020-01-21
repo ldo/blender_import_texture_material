@@ -87,6 +87,13 @@ class MAP(enum.Enum) :
     #end namestr
 
     @property
+    def is_colour(self) :
+        "does this component actually represent colour data."
+        return \
+            self in {MAP.DIFFUSE, MAP.SPECULAR}
+    #end is_colour
+
+    @property
     def principled_bsdf_input_name(self) :
       # names of principled shader inputs are ['Base Color', 'Subsurface', 'Subsurface Radius',
       # 'Subsurface Color', 'Metallic', 'Specular', 'Specular Tint', 'Roughness',
@@ -171,6 +178,9 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             def new_map_image(map) :
                 image = bpy.data.images.load(components[map])
                 image.name = "%s_%s" % (material_name, map.namestr)
+                if not map.is_colour :
+                    image.colorspace_settings.name = "Non-Color"
+                #end if
                 image.pack()
                 tex_image = material_tree.nodes.new("ShaderNodeTexImage")
                 tex_image.image = image
