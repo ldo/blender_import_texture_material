@@ -293,6 +293,8 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     tex_image.outputs["Color"],
                     material_output.inputs["Displacement"]
                   )
+                material.cycles.displacement_method = "DISPLACEMENT"
+                  # default is "BUMP" -- or perhaps better to set to "BOTH"?
             #end if
             deselect_all(material_tree)
             if self.use_displacement == "texture" and MAP.DISPLACEMENT in components :
