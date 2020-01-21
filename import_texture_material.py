@@ -37,7 +37,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (0, 3, 0),
+        "version" : (0, 4, 0),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -165,10 +165,14 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                 material_tree.nodes.remove(node)
             #end for
             tex_coords = material_tree.nodes.new("ShaderNodeTexCoord")
-            tex_coords.location = (-400, 0)
+            tex_coords.location = (-600, 0)
+            tex_mapping = material_tree.nodes.new("ShaderNodeMapping")
+            tex_mapping.location = (-400, 0)
+            material_tree.links.new(tex_coords.outputs["UV"], tex_mapping.inputs["Vector"])
             fanout = material_tree.nodes.new("NodeReroute")
             fanout.location = (-200, -150)
-            material_tree.links.new(tex_coords.outputs["UV"], fanout.inputs[0])
+            fanout.label = "Fanout"
+            material_tree.links.new(tex_mapping.outputs["Vector"], fanout.inputs[0])
               # fanout makes it easy to change this coordinate source for all
               # texture components at once
             main_shader = material_tree.nodes.new("ShaderNodeBsdfPrincipled")
