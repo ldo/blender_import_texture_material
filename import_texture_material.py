@@ -35,7 +35,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (0, 7, 0),
+        "version" : (0, 8, 0),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -136,6 +136,12 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
       (
         name = "Normal Map",
         description = "use normal map in material, if available",
+        default = True
+      )
+    attenuate_normals : bpy.props.BoolProperty \
+      (
+        name = "Normal Map Strength Control",
+        description = "add control for strength of normal map",
         default = True
       )
     use_bump : bpy.props.BoolProperty \
@@ -257,24 +263,123 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     tex_image
             #end new_image_texture_node
 
+            def add_bump_convert_nodes(texture_output, extra_nodes_location) :
+                # adds nodes for converting a bump map to a normal map.
+                bump_convert = material_tree.nodes.new("ShaderNodeBump")
+                bump_convert.location = (extra_nodes_location[0] + 300, extra_nodes_location[1])
+                material_tree.links.new \
+                  (
+                    texture_output,
+                    bump_convert.inputs["Height"]
+                  )
+                return \
+                    bump_convert.outputs["Normal"]
+            #end add_bump_convert_nodes
+
+            normal_strength_group_name = "normal_strength"
+
+            def add_normal_attenuation_nodes(texture_output, extra_nodes_location) :
+                # adds nodes for controlling the strength of the normal map.
+                nonlocal normal_strength_group_name
+                normal_strength_group = None # to begin with
+                if normal_strength_group_name in bpy.data.node_groups :
+                    normal_strength_group = bpy.data.node_groups[normal_strength_group_name]
+                    if (
+                            len(normal_strength_group.inputs) == 2
+                        and
+                            len(normal_strength_group.outputs) == 1
+                        and
+                            normal_strength_group.inputs[0].type == "VECTOR"
+                        and
+                            normal_strength_group.inputs[1].type == "VALUE"
+                        and
+                            normal_strength_group.outputs[0].type == "VECTOR"
+                    ) :
+                        pass # looks OK
+                    else :
+                        # these are not the nodes you’re looking for
+                        normal_strength_group = None
+                    #end if
+                #end if
+                if normal_strength_group == None :
+                    # existing node group not found, create a new one
+                    normal_strength_group = bpy.data.node_groups.new \
+                      (
+                        normal_strength_group_name,
+                        "ShaderNodeTree"
+                      )
+                    normal_strength_group_name = normal_strength_group.name
+                      # for finding it next time
+                    group_input = normal_strength_group.nodes.new("NodeGroupInput")
+                    group_output = normal_strength_group.nodes.new("NodeGroupOutput")
+                    # explicitly creating following sockets has no effect,
+                    # they are created automatically by links.new():
+                    #group_input.outputs.new("VECTOR", "In")
+                    #group_input.outputs.new("VALUE", "Strength")
+                    group_input.location = (-400, 200)
+                    geometry = normal_strength_group.nodes.new("ShaderNodeNewGeometry")
+                    geometry.location = (-400, -200)
+                    subtract = normal_strength_group.nodes.new("ShaderNodeVectorMath")
+                    subtract.operation = "SUBTRACT"
+                    subtract.location = (-200, 0)
+                    normal_strength_group.links.new(group_input.outputs[0], subtract.inputs[0])
+                    normal_strength_group.links.new(geometry.outputs["Normal"], subtract.inputs[1])
+                    multiply = normal_strength_group.nodes.new("ShaderNodeVectorMath")
+                    multiply.operation = "SCALE"
+                    multiply.location = (0, 0)
+                    normal_strength_group.links.new(subtract.outputs[0], multiply.inputs[0])
+                    normal_strength_group.links.new(group_input.outputs[1], multiply.inputs[2])
+                      # note not multiply.inputs[1], which is always a vector input!
+                    add = normal_strength_group.nodes.new("ShaderNodeVectorMath")
+                    add.operation = "ADD"
+                    add.location = (200, 0)
+                    normal_strength_group.links.new(multiply.outputs[0], add.inputs[0])
+                    normal_strength_group.links.new(geometry.outputs["Normal"], add.inputs[1])
+                    # explicitly creating following socket has no effect,
+                    # it is created automatically by links.new():
+                    #group_output.inputs.new("VECTOR", "Out")
+                    group_output.location = (400, 0)
+                    normal_strength_group.links.new(add.outputs[0], group_output.inputs[0])
+                    # following has no effect that I can discern:
+                    #normal_strength_group.inputs.new("VECTOR", "In")
+                    #normal_strength_group.inputs.new("VALUE", "Strength")
+                    #normal_strength_group.outputs.new("VECTOR", "Out")
+                    # have to assign names to nodegroup sockets this way:
+                    normal_strength_group.inputs[0].name = "In"
+                    normal_strength_group.inputs[1].name = "Strength"
+                    normal_strength_group.outputs[0].name = "Out"
+                    deselect_all(normal_strength_group)
+                #end if
+                normal_strength = material_tree.nodes.new("ShaderNodeGroup")
+                normal_strength.node_tree = normal_strength_group
+                normal_strength.location = (extra_nodes_location[0] + 300, extra_nodes_location[1])
+                material_tree.links.new \
+                  (
+                    texture_output,
+                    normal_strength.inputs[0]
+                  )
+                return \
+                    normal_strength.outputs[0]
+            #end add_normal_attenuation_nodes
+
+            add_special_nodes_for = \
+                {
+                    MAP.BUMP : add_bump_convert_nodes,
+                }
+            if self.attenuate_normals :
+                add_special_nodes_for[MAP.NORMAL] = add_normal_attenuation_nodes
+            #end if
             for map in (MAP.DIFFUSE, MAP.SPECULAR, MAP.ROUGHNESS, MAP.NORMAL, MAP.BUMP) :
               # Go according to ordering of input nodes on Principled BSDF,
               # to avoid wires crossing.
               # Also note MAP.DISPLACEMENT handled specially below.
                 if map in components :
-                    bump_location = tuple(map_location)
+                    extra_nodes_location = list(map_location)
                     tex_image = new_image_texture_node(map)
-                    if map == MAP.BUMP :
-                        bump_convert = material_tree.nodes.new("ShaderNodeBump")
-                        bump_convert.location = (bump_location[0] + 300, bump_location[1])
-                        material_tree.links.new \
-                          (
-                            tex_image.outputs["Color"],
-                            bump_convert.inputs["Height"]
-                          )
-                        output_terminal = bump_convert.outputs["Normal"]
-                    else :
-                        output_terminal = tex_image.outputs["Color"]
+                    output_terminal = tex_image.outputs["Color"]
+                    add_special_nodes = add_special_nodes_for.get(map)
+                    if add_special_nodes != None :
+                        output_terminal = add_special_nodes(output_terminal, extra_nodes_location)
                     #end if
                     material_tree.links.new \
                       (
