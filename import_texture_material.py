@@ -111,6 +111,33 @@ class MAP(enum.Enum) :
 
 #end MAP
 
+@enum.unique
+class USE_DISPLACEMENT(enum.Enum) :
+    "how to use a loaded displacement map."
+    NO = ("no", "No", "don’t use")
+    MATERIAL = ("material", "In Material", "use in material nodes")
+    TEXTURE = ("texture", "In Texture", "load as separate texture for use in displacement modifier")
+
+    @property
+    def idstr(self) :
+        return \
+            self.value[0]
+    #end idstr
+
+    @property
+    def label(self) :
+        return \
+            self.value[1]
+    #end label
+
+    @property
+    def description(self) :
+        return \
+            self.value[2]
+    #end description
+
+#end USE_DISPLACEMENT
+
 class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper) :
     bl_idname = "material.import_texture"
     bl_label = "Import Texture Material"
@@ -181,15 +208,13 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
     use_displacement : bpy.props.EnumProperty \
       (
         name = "Use Displacement",
-        description = "use displacement map, if available",
-        items =
+        description = "how to use displacement map, if available",
+        items = tuple
             (
-                ("no", "No", "don’t use displacement map"),
-                ("material", "In Material", "as part of material definition"),
-                ("texture", "In Texture",
-                    "as part of separate texture definition, for use in displacement modifier"),
+                (m.idstr, m.label, m.description)
+                for m in USE_DISPLACEMENT.__members__.values()
             ),
-        default = "material",
+        default = USE_DISPLACEMENT.MATERIAL.idstr
       )
 
     def execute(self, context) :
@@ -356,7 +381,11 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             material_output = material_tree.nodes.new("ShaderNodeOutputMaterial")
             material_output.location = (850, 0)
             material_tree.links.new(main_shader.outputs[0], material_output.inputs[0])
-            if map_preference == MAP.DISPLACEMENT :
+            if (
+                    map_preference == MAP.DISPLACEMENT
+                and
+                    self.use_displacement == USE_DISPLACEMENT.MATERIAL.idstr
+            ) :
                 tex_image = new_image_texture_node(MAP.DISPLACEMENT)
                 material_tree.links.new \
                   (
@@ -367,7 +396,11 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                   # values are "BUMP" (default), "DISPLACEMENT" or "BOTH"
             #end if
             deselect_all(material_tree)
-            if self.use_displacement == "texture" and MAP.DISPLACEMENT in components :
+            if (
+                    map_preference == MAP.DISPLACEMENT
+                and
+                    self.use_displacement == USE_DISPLACEMENT.TEXTURE.idstr
+            ) :
                 image = load_image(MAP.DISPLACEMENT)
                 tex = bpy.data.textures.new(image.name, "IMAGE")
                 tex.image = image
