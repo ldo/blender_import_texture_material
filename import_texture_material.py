@@ -35,7 +35,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (0, 9, 1),
+        "version" : (0, 9, 2),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -270,102 +270,17 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     bump_convert.outputs["Normal"]
             #end add_bump_convert_nodes
 
-            normal_mapping_group_name = "texture_material_normal_mapping"
-
             def add_normal_mapping_nodes(texture_output, extra_nodes_location) :
-                # adds nodes for controlling the strength of the normal map.
-                nonlocal normal_mapping_group_name
-                group = None # to begin with
-                if normal_mapping_group_name in bpy.data.node_groups :
-                    group = bpy.data.node_groups[normal_mapping_group_name]
-                    if (
-                            len(group.inputs) == 1
-                        and
-                            len(group.outputs) == 1
-                        and
-                            group.inputs[0].type == "VECTOR"
-                        and
-                            group.outputs[0].type == "VECTOR"
-                    ) :
-                        pass # looks OK
-                    else :
-                        # these are not the nodes you’re looking for
-                        group = None
-                    #end if
-                #end if
-                if group == None :
-                    # existing node group not found, create a new one
-                    group = bpy.data.node_groups.new \
-                      (
-                        normal_mapping_group_name,
-                        "ShaderNodeTree"
-                      )
-                    normal_mapping_group_name = group.name
-                      # for finding it next time
-                    group_input = group.nodes.new("NodeGroupInput")
-                    group_input.location = (-400, 200)
-                    group_output = group.nodes.new("NodeGroupOutput")
-                    group_output.location = (400, 0)
-                    # Note that there is no point calling group_input.outputs.new(),
-                    # group_output.inputs.new(), group.inputs.new() or
-                    # group.outputs.new()--these calls do nothing. Instead, all inputs and
-                    # outputs for the node group are automatically created as connections
-                    # are made to them via group.links.new().
-                    #
-                    # Basic vector-rotation formula: given unit vectors V₀ and V₁
-                    # such that the relative rotation from V₀ to V₁ is to be applied
-                    # to a vector V to produce a new vector V’, the formula is
-                    #
-                    #     V’ = (V₀ × V₁) × V + (V₀ ⋅ V₁)V
-                    #
-                    zvector = group.nodes.new("ShaderNodeCombineXYZ") # V₀
-                    zvector.location = (-400, 0)
-                    zvector.inputs[0].default_value = 0
-                    zvector.inputs[1].default_value = 0
-                    zvector.inputs[2].default_value = 1
-                    cross1 = group.nodes.new("ShaderNodeVectorMath")
-                    cross1.location = (-200, 0)
-                    cross1.operation = "CROSS_PRODUCT"
-                    dot = group.nodes.new("ShaderNodeVectorMath")
-                    dot.location = (-200, -200)
-                    dot.operation = "DOT_PRODUCT"
-                    group.links.new(zvector.outputs[0], cross1.inputs[0]) # V₀
-                    group.links.new(group_input.outputs[0], cross1.inputs[1]) # V₁
-                    group.links.new(zvector.outputs[0], dot.inputs[0]) # V₀
-                    group.links.new(group_input.outputs[0], dot.inputs[1]) # V₁
-                    geometry = group.nodes.new("ShaderNodeNewGeometry")
-                    geometry.location = (-200, -400)
-                    cross2 = group.nodes.new("ShaderNodeVectorMath")
-                    cross2.location = (0, 0)
-                    cross2.operation = "CROSS_PRODUCT"
-                    group.links.new(cross1.outputs[0], cross2.inputs[0])
-                    group.links.new(geometry.outputs["Normal"], cross2.inputs[1]) # V
-                    scale = group.nodes.new("ShaderNodeVectorMath")
-                    scale.location = (0, -200)
-                    scale.operation = "SCALE"
-                    group.links.new(geometry.outputs["Normal"], scale.inputs[0]) # V
-                    group.links.new(dot.outputs[1], scale.inputs[2]) # note not dot.outputs[0] or scale.inputs[1]!
-                    add = group.nodes.new("ShaderNodeVectorMath")
-                    add.location = (200, 0)
-                    add.operation = "ADD"
-                    group.links.new(cross2.outputs[0], add.inputs[0])
-                    group.links.new(scale.outputs[0], add.inputs[1])
-                    group.links.new(add.outputs[0], group_output.inputs[0])
-                    # have to assign names to nodegroup sockets this way:
-                    group.inputs[0].name = "In"
-                    group.outputs[0].name = "Out"
-                    deselect_all(group)
-                #end if
-                normal_strength = material_tree.nodes.new("ShaderNodeGroup")
-                normal_strength.node_tree = group
-                normal_strength.location = (extra_nodes_location[0] + 300, extra_nodes_location[1])
+                # adds a node for controlling the strength of the normal map.
+                map = material_tree.nodes.new("ShaderNodeNormalMap")
+                map.location = (extra_nodes_location[0] + 300, extra_nodes_location[1])
                 material_tree.links.new \
                   (
                     texture_output,
-                    normal_strength.inputs[0]
+                    map.inputs["Color"]
                   )
                 return \
-                    normal_strength.outputs[0]
+                    map.outputs["Normal"]
             #end add_normal_mapping_nodes
 
             add_special_nodes_for = \
