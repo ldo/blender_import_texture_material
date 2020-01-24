@@ -35,7 +35,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (0, 9, 2),
+        "version" : (1, 0, 0),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -76,6 +76,7 @@ class MAP(enum.Enum) :
     NORMAL = "nor"
     ROUGHNESS = "rough"
     SPECULAR = "spec"
+    NONE = "none" # no such map
 
     @property
     def namestr(self) :
@@ -132,17 +133,44 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
         description = "use specular colour in material, if available",
         default = True
       )
-    use_normals : bpy.props.BoolProperty \
+    first_priority : bpy.props.EnumProperty \
       (
-        name = "Normal Map",
-        description = "use normal map in material, if available",
-        default = True
+        name = "First Prefer",
+        description = "which map to prefer, among the ones available",
+        items =
+            (
+                (MAP.NONE.value, "None", "nothing"),
+                (MAP.NORMAL.value, "Normal Map", "normal map, if available"),
+                (MAP.BUMP.value, "Bump Map", "bump map, if available"),
+                (MAP.DISPLACEMENT.value, "Displacement Map", "displacement map, if available"),
+            ),
+        default = MAP.NORMAL.value,
       )
-    use_bump : bpy.props.BoolProperty \
+    second_priority : bpy.props.EnumProperty \
       (
-        name = "Bump Map",
-        description = "use bump map in material, if available",
-        default = True
+        name = "Then Prefer",
+        description = "which map to prefer next, among the ones available",
+        items =
+            (
+                (MAP.NONE.value, "None", "nothing"),
+                (MAP.NORMAL.value, "Normal Map", "normal map, if available"),
+                (MAP.BUMP.value, "Bump Map", "bump map, if available"),
+                (MAP.DISPLACEMENT.value, "Displacement Map", "displacement map, if available"),
+            ),
+        default = MAP.BUMP.value,
+      )
+    third_priority : bpy.props.EnumProperty \
+      (
+        name = "Use Last",
+        description = "which map to use last, among the ones available",
+        items =
+            (
+                (MAP.NONE.value, "None", "nothing"),
+                (MAP.NORMAL.value, "Normal Map", "normal map, if available"),
+                (MAP.BUMP.value, "Bump Map", "bump map, if available"),
+                (MAP.DISPLACEMENT.value, "Displacement Map", "displacement map, if available"),
+            ),
+        default = MAP.DISPLACEMENT.value,
       )
     use_roughness : bpy.props.BoolProperty \
       (
@@ -176,16 +204,26 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
               )
             by_namestr = dict \
               (
-                (m.namestr, MAP[k]) for k, m in MAP.__members__.items()
+                (m.namestr, MAP[k])
+                for k, m in MAP.__members__.items()
+                if k != MAP.NONE.value
               )
+            map_preference = tuple \
+              (
+                by_namestr[k]
+                for k in (self.first_priority, self.second_priority, self.third_priority)
+                if k != MAP.NONE.value
+              )
+              # Note it doesn’t matter if user chooses duplicates, as only
+              # the first occurrence of each map type has effect.
             load_component = \
                 {
                     MAP.DIFFUSE : self.use_diffuse,
                     MAP.SPECULAR : self.use_specular,
-                    MAP.NORMAL : self.use_normals,
-                    MAP.BUMP : self.use_bump,
+                    MAP.NORMAL : MAP.NORMAL in map_preference,
+                    MAP.BUMP : MAP.BUMP in map_preference,
                     MAP.ROUGHNESS : self.use_roughness,
-                    MAP.DISPLACEMENT : self.use_displacement != "no",
+                    MAP.DISPLACEMENT : MAP.DISPLACEMENT in map_preference,
                 }
             components = {}
             name_pat = r"^.+_([a-zA-Z]+)_(\d+)k\..+$"
@@ -208,9 +246,11 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     #end if
                 #end if
             #end for
-            if MAP.NORMAL in components :
-                # prefer normal over bump map
-                components.pop(MAP.BUMP, None)
+            map_preference = tuple(k for k in map_preference if k in components)
+            if len(map_preference) != 0 :
+                map_preference = map_preference[0]
+            else :
+                map_preference = None
             #end if
             material_name = os.path.splitext(os.path.basename(self.filepath))[0]
             material = bpy.data.materials.new(material_name)
@@ -288,7 +328,12 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     MAP.BUMP : add_bump_convert_nodes,
                     MAP.NORMAL : add_normal_mapping_nodes,
                 }
-            for map in (MAP.DIFFUSE, MAP.SPECULAR, MAP.ROUGHNESS, MAP.NORMAL, MAP.BUMP) :
+            for map in (
+                    (MAP.DIFFUSE, MAP.SPECULAR, MAP.ROUGHNESS)
+                +
+                    ((), (map_preference,))
+                        [map_preference != None and map_preference != MAP.DISPLACEMENT]
+            ) :
               # Go according to ordering of input nodes on Principled BSDF,
               # to avoid wires crossing.
               # Also note MAP.DISPLACEMENT handled specially below.
@@ -310,7 +355,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             material_output = material_tree.nodes.new("ShaderNodeOutputMaterial")
             material_output.location = (850, 0)
             material_tree.links.new(main_shader.outputs[0], material_output.inputs[0])
-            if self.use_displacement == "material" and MAP.DISPLACEMENT in components :
+            if map_preference == MAP.DISPLACEMENT :
                 tex_image = new_image_texture_node(MAP.DISPLACEMENT)
                 material_tree.links.new \
                   (
