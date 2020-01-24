@@ -273,7 +273,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
               # texture components at once
             main_shader = material_tree.nodes.new("ShaderNodeBsdfPrincipled")
             main_shader.location = (500, 0)
-            map_location = [0, 200]
+            map_location = [-100, 200]
 
             def load_image(map) :
                 image = bpy.data.images.load(components[map])
@@ -300,7 +300,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             def add_bump_convert_nodes(texture_output, extra_nodes_location) :
                 # adds nodes for converting a bump map to a normal map.
                 bump_convert = material_tree.nodes.new("ShaderNodeBump")
-                bump_convert.location = (extra_nodes_location[0] + 300, extra_nodes_location[1])
+                bump_convert.location = extra_nodes_location
                 material_tree.links.new \
                   (
                     texture_output,
@@ -313,7 +313,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             def add_normal_mapping_nodes(texture_output, extra_nodes_location) :
                 # adds a node for controlling the strength of the normal map.
                 map = material_tree.nodes.new("ShaderNodeNormalMap")
-                map.location = (extra_nodes_location[0] + 300, extra_nodes_location[1])
+                map.location = extra_nodes_location
                 material_tree.links.new \
                   (
                     texture_output,
@@ -339,6 +339,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
               # Also note MAP.DISPLACEMENT handled specially below.
                 if map in components :
                     extra_nodes_location = list(map_location)
+                    extra_nodes_location[0] += 300
                     tex_image = new_image_texture_node(map)
                     output_terminal = tex_image.outputs["Color"]
                     add_special_nodes = add_special_nodes_for.get(map)
