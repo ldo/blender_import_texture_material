@@ -35,7 +35,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (0, 8, 0),
+        "version" : (0, 9, 0),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -317,13 +317,13 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     #group_input.outputs.new("VECTOR", "In")
                     #group_input.outputs.new("VALUE", "Strength")
                     group_input.location = (-400, 200)
-                    geometry = normal_strength_group.nodes.new("ShaderNodeNewGeometry")
-                    geometry.location = (-400, -200)
+                    texcoord = normal_strength_group.nodes.new("ShaderNodeTexCoord")
+                    texcoord.location = (-400, -200)
                     subtract = normal_strength_group.nodes.new("ShaderNodeVectorMath")
                     subtract.operation = "SUBTRACT"
                     subtract.location = (-200, 0)
                     normal_strength_group.links.new(group_input.outputs[0], subtract.inputs[0])
-                    normal_strength_group.links.new(geometry.outputs["Normal"], subtract.inputs[1])
+                    subtract.inputs[1].default_value = (0, 0, 1)
                     multiply = normal_strength_group.nodes.new("ShaderNodeVectorMath")
                     multiply.operation = "SCALE"
                     multiply.location = (0, 0)
@@ -334,7 +334,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     add.operation = "ADD"
                     add.location = (200, 0)
                     normal_strength_group.links.new(multiply.outputs[0], add.inputs[0])
-                    normal_strength_group.links.new(geometry.outputs["Normal"], add.inputs[1])
+                    normal_strength_group.links.new(texcoord.outputs["Normal"], add.inputs[1])
                     # explicitly creating following socket has no effect,
                     # it is created automatically by links.new():
                     #group_output.inputs.new("VECTOR", "Out")
