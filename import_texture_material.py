@@ -37,7 +37,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (1, 1, 0),
+        "version" : (1, 1, 1),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -76,9 +76,9 @@ class MAP(enum.Enum) :
     BUMP = ("bump",)
     DIFFUSE = ("col", "diff")
     DISPLACEMENT = "disp"
-    NORMAL = ("nor", "nrm")
-    ROUGHNESS = ("rgh", "rough")
-    SPECULAR = ("spec",)
+    NORMAL = ("nor", "normal", "nrm")
+    ROUGHNESS = ("rgh", "rough", "roughness")
+    SPECULAR = ("met", "spec")
     NONE = "none" # no such map
 
     @property
