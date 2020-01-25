@@ -237,7 +237,14 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
               (
                 by_namestr[k]
                 for k in (self.first_priority, self.second_priority, self.third_priority)
-                if k != MAP.NONE.value
+                if
+                        k != MAP.NONE.value
+                    and
+                        (
+                            k != MAP.DISPLACEMENT.value
+                        or
+                            self.use_displacement != USE_DISPLACEMENT.NO.idstr
+                        )
               )
               # Note it doesn’t matter if user chooses duplicates, as only
               # the first occurrence of each map type has effect.
