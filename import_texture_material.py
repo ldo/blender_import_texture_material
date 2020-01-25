@@ -1,15 +1,17 @@
 #+
 # This Blender addon imports a texture material directly from an
-# archive file, such as those downloadable from texturehaven.com. The
-# archive is expected to contain separate images defining maps for
-# diffusion, specular and so on, following a common naming convention,
-# as follows:
+# archive file, such as those downloadable from texturehaven.com
+# or cc0textures.com. The archive is expected to contain separate
+# images defining maps for diffusion, specular and so on,
+# following a common naming convention, one of
 #
 #     «prefix»_«component»_«n»k.«ext»
+#     «prefix»_«component».«ext»
 #
-# where «prefix» is ignored, «n» is a decimal integer indicating
-# the image resolution, «ext» is some suitable filename extension,
-# and «component» is one of the strings listed in the MAP enum below.
+# where «prefix» is ignored, «n» (if present) is a decimal integer
+# indicating the image resolution, «ext» is some suitable filename
+# extension, and «component» is one of the strings listed in the MAP
+# enum below.
 #
 # These will be extracted and packed into the .blend file, and used
 # in a new material definition named according to the archive file name.
@@ -35,7 +37,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (1, 0, 0),
+        "version" : (1, 1, 0),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -69,21 +71,28 @@ def deselect_all(material_tree) :
 
 @enum.unique
 class MAP(enum.Enum) :
-    "names of maps that I know how to use."
-    BUMP = "bump"
-    DIFFUSE = "diff"
+    "names of maps that I know how to use. Each value is a tuple" \
+    " of alternative names."
+    BUMP = ("bump",)
+    DIFFUSE = ("col", "diff")
     DISPLACEMENT = "disp"
-    NORMAL = "nor"
-    ROUGHNESS = "rough"
-    SPECULAR = "spec"
+    NORMAL = ("nor", "nrm")
+    ROUGHNESS = ("rgh", "rough")
+    SPECULAR = ("spec",)
     NONE = "none" # no such map
 
     @property
     def namestr(self) :
-        "the string that occurs in the filename for this particular image map."
+        "the strings that occur in the filename for this particular image map."
         return \
             self.value
     #end namestr
+
+    @property
+    def idstr(self) :
+        return \
+            self.value[0]
+    #end idstr
 
     @property
     def is_colour(self) :
@@ -166,12 +175,12 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
         description = "which map to prefer, among the ones available",
         items =
             (
-                (MAP.NONE.value, "None", "nothing"),
-                (MAP.NORMAL.value, "Normal Map", "normal map, if available"),
-                (MAP.BUMP.value, "Bump Map", "bump map, if available"),
-                (MAP.DISPLACEMENT.value, "Displacement Map", "displacement map, if available"),
+                (MAP.NONE.idstr, "None", "nothing"),
+                (MAP.NORMAL.idstr, "Normal Map", "normal map, if available"),
+                (MAP.BUMP.idstr, "Bump Map", "bump map, if available"),
+                (MAP.DISPLACEMENT.idstr, "Displacement Map", "displacement map, if available"),
             ),
-        default = MAP.NORMAL.value,
+        default = MAP.NORMAL.idstr,
       )
     second_priority : bpy.props.EnumProperty \
       (
@@ -179,12 +188,12 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
         description = "which map to prefer next, among the ones available",
         items =
             (
-                (MAP.NONE.value, "None", "nothing"),
-                (MAP.NORMAL.value, "Normal Map", "normal map, if available"),
-                (MAP.BUMP.value, "Bump Map", "bump map, if available"),
-                (MAP.DISPLACEMENT.value, "Displacement Map", "displacement map, if available"),
+                (MAP.NONE.idstr, "None", "nothing"),
+                (MAP.NORMAL.idstr, "Normal Map", "normal map, if available"),
+                (MAP.BUMP.idstr, "Bump Map", "bump map, if available"),
+                (MAP.DISPLACEMENT.idstr, "Displacement Map", "displacement map, if available"),
             ),
-        default = MAP.BUMP.value,
+        default = MAP.BUMP.idstr,
       )
     third_priority : bpy.props.EnumProperty \
       (
@@ -192,12 +201,12 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
         description = "which map to use last, among the ones available",
         items =
             (
-                (MAP.NONE.value, "None", "nothing"),
-                (MAP.NORMAL.value, "Normal Map", "normal map, if available"),
-                (MAP.BUMP.value, "Bump Map", "bump map, if available"),
-                (MAP.DISPLACEMENT.value, "Displacement Map", "displacement map, if available"),
+                (MAP.NONE.idstr, "None", "nothing"),
+                (MAP.NORMAL.idstr, "Normal Map", "normal map, if available"),
+                (MAP.BUMP.idstr, "Bump Map", "bump map, if available"),
+                (MAP.DISPLACEMENT.idstr, "Displacement Map", "displacement map, if available"),
             ),
-        default = MAP.DISPLACEMENT.value,
+        default = MAP.DISPLACEMENT.idstr,
       )
     use_roughness : bpy.props.BoolProperty \
       (
@@ -229,19 +238,20 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
               )
             by_namestr = dict \
               (
-                (m.namestr, MAP[k])
+                (n, MAP[k])
                 for k, m in MAP.__members__.items()
                 if k != MAP.NONE.value
+                for n in m.namestr
               )
             map_preference = tuple \
               (
                 by_namestr[k]
                 for k in (self.first_priority, self.second_priority, self.third_priority)
                 if
-                        k != MAP.NONE.value
+                        k != MAP.NONE.idstr
                     and
                         (
-                            k != MAP.DISPLACEMENT.value
+                            k != MAP.DISPLACEMENT.idstr
                         or
                             self.use_displacement != USE_DISPLACEMENT.NO.idstr
                         )
@@ -258,26 +268,32 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     MAP.DISPLACEMENT : MAP.DISPLACEMENT in map_preference,
                 }
             components = {}
-            name_pat = r"^.+_([a-zA-Z]+)_(\d+)k\..+$"
+            name_pat = r"^.+_([a-zA-Z]+)(?:_(\d+)k)?\..+$"
             img_size = None
             for item in os.listdir(temp_dir) :
                 match = re.search(name_pat, item)
                 if match != None :
                     namestr = match.group(1).lower()
-                    this_size = int(match.group(2)) * 1024
-                    if img_size == None :
-                        img_size = this_size
-                    else :
-                        assert this_size == img_size
+                    this_size = match.group(2)
+                    if this_size != None :
+                        this_size = int(this_size) * 1024
+                        if img_size == None :
+                            img_size = this_size
+                        else :
+                            assert this_size == img_size
+                        #end if
                     #end if
                     if namestr in by_namestr :
                         map = by_namestr[namestr]
                         if load_component.get(map, False) :
-                            components[map] = os.path.join(temp_dir, item)
+                            components[map] = (namestr, os.path.join(temp_dir, item))
                         #end if
                     #end if
                 #end if
             #end for
+            if len(components) == 0 :
+                raise Failure("No suitable texture components found.")
+            #end if
             map_preference = tuple(k for k in map_preference if k in components)
             if len(map_preference) != 0 :
                 map_preference = map_preference[0]
@@ -308,8 +324,9 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             map_location = [-100, 200]
 
             def load_image(map) :
-                image = bpy.data.images.load(components[map])
-                image.name = "%s_%s" % (material_name, map.namestr)
+                image = bpy.data.images.load(components[map][1])
+                namestr = components[map][0]
+                image.name = "%s_%s" % (material_name, namestr)
                 if not map.is_colour :
                     image.colorspace_settings.name = "Non-Color"
                 #end if
