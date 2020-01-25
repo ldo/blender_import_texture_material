@@ -37,7 +37,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (1, 1, 2),
+        "version" : (1, 2, 0),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -73,6 +73,7 @@ def deselect_all(material_tree) :
 class MAP(enum.Enum) :
     "names of maps that I know how to use. Each value is a tuple" \
     " of alternative names."
+    ALPHA = ("mask",)
     BUMP = ("bump",)
     DIFFUSE = ("col", "diff")
     DISPLACEMENT = ("disp",)
@@ -110,10 +111,11 @@ class MAP(enum.Enum) :
       # 'Emission', 'Alpha', 'Normal', 'Clearcoat Normal', 'Tangent']
         return \
             {
+                MAP.ALPHA : "Alpha",
                 MAP.BUMP : "Normal", # after putting through a Bump node
                 MAP.DIFFUSE : "Base Color",
                 MAP.ROUGHNESS : "Roughness",
-                MAP.NORMAL : "Normal",
+                MAP.NORMAL : "Normal", # after putting through a Normal-Map node
                 MAP.SPECULAR : "Specular",
             }[self]
     #end principled_bsdf_input_name
@@ -214,6 +216,12 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
         description = "use roughness map in material, if available",
         default = True
       )
+    use_alpha : bpy.props.BoolProperty \
+      (
+        name = "Transparency Map",
+        description = "use transparency map in material, if available",
+        default = True
+      )
     use_displacement : bpy.props.EnumProperty \
       (
         name = "Use Displacement",
@@ -260,6 +268,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
               # the first occurrence of each map type has effect.
             load_component = \
                 {
+                    MAP.ALPHA : self.use_alpha,
                     MAP.DIFFUSE : self.use_diffuse,
                     MAP.SPECULAR : self.use_specular,
                     MAP.NORMAL : MAP.NORMAL in map_preference,
@@ -378,7 +387,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     MAP.NORMAL : add_normal_mapping_nodes,
                 }
             for map in (
-                    (MAP.DIFFUSE, MAP.SPECULAR, MAP.ROUGHNESS)
+                    (MAP.DIFFUSE, MAP.SPECULAR, MAP.ROUGHNESS, MAP.ALPHA)
                 +
                     ((), (map_preference,))
                         [map_preference != None and map_preference != MAP.DISPLACEMENT]
