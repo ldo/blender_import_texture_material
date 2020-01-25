@@ -37,7 +37,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (1, 2, 0),
+        "version" : (1, 2, 1),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -414,6 +414,9 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             material_output = material_tree.nodes.new("ShaderNodeOutputMaterial")
             material_output.location = (850, 0)
             material_tree.links.new(main_shader.outputs[0], material_output.inputs[0])
+            if MAP.ALPHA in components :
+                material.blend_method = "BLEND"
+            #end if
             if (
                     map_preference == MAP.DISPLACEMENT
                 and
