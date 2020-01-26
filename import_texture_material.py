@@ -83,11 +83,11 @@ class MAP(enum.Enum) :
     NONE = "none" # no such map
 
     @property
-    def namestr(self) :
+    def namestrs(self) :
         "the strings that occur in the filename for this particular image map."
         return \
             self.value
-    #end namestr
+    #end namestrs
 
     @property
     def idstr(self) :
@@ -249,7 +249,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                 (n, MAP[k])
                 for k, m in MAP.__members__.items()
                 if k != MAP.NONE.value
-                for n in m.namestr
+                for n in m.namestrs
               )
             map_preference = tuple \
               (
@@ -375,7 +375,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             #end add_bump_convert_nodes
 
             def add_normal_mapping_nodes(texture_output, extra_nodes_location) :
-                # adds a node for controlling the strength of the normal map.
+                # adds a node for correctly applying the normal map.
                 map = material_tree.nodes.new("ShaderNodeNormalMap")
                 map.location = extra_nodes_location
                 material_tree.links.new \
