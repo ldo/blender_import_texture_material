@@ -37,7 +37,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (1, 2, 2),
+        "version" : (1, 3, 0),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -127,6 +127,7 @@ class USE_DISPLACEMENT(enum.Enum) :
     "how to use a loaded displacement map."
     NO = ("no", "No", "don’t use")
     MATERIAL = ("material", "In Material", "use in material nodes")
+    MATERIAL_BUMP = ("material_bump", "In Material As Bump", "use in material as a bump texture")
     TEXTURE = ("texture", "In Texture", "load as separate texture for use in displacement modifier")
 
     @property
@@ -396,24 +397,37 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     (MAP.DIFFUSE, MAP.SPECULAR, MAP.ROUGHNESS, MAP.ALPHA)
                 +
                     ((), (map_preference,))
-                        [map_preference != None and map_preference != MAP.DISPLACEMENT]
+                        [
+                            map_preference != None
+                        and
+                            (
+                                map_preference != MAP.DISPLACEMENT
+                            or
+                                self.use_displacement == USE_DISPLACEMENT.MATERIAL_BUMP.idstr
+                            )
+                        ]
             ) :
               # Go according to ordering of input nodes on Principled BSDF,
               # to avoid wires crossing.
-              # Also note MAP.DISPLACEMENT handled specially below.
+              # Also note further special handling of MAP.DISPLACEMENT below.
                 if map in components :
                     extra_nodes_location = list(map_location)
                     extra_nodes_location[0] += 300
+                    if map == MAP.DISPLACEMENT :
+                        use_map = MAP.BUMP
+                    else :
+                        use_map = map
+                    #end if
                     tex_image = new_image_texture_node(map)
                     output_terminal = tex_image.outputs["Color"]
-                    add_special_nodes = add_special_nodes_for.get(map)
+                    add_special_nodes = add_special_nodes_for.get(use_map)
                     if add_special_nodes != None :
                         output_terminal = add_special_nodes(output_terminal, extra_nodes_location)
                     #end if
                     material_tree.links.new \
                       (
                         output_terminal,
-                        main_shader.inputs[map.principled_bsdf_input_name]
+                        main_shader.inputs[use_map.principled_bsdf_input_name]
                       )
                 #end for
             #end for
