@@ -37,7 +37,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (1, 3, 0),
+        "version" : (1, 4, 0),
         "blender" : (2, 81, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -74,6 +74,7 @@ class MAP(enum.Enum) :
     "names of maps that I know how to use. Each value is a tuple" \
     " of alternative names."
     ALPHA = ("mask",)
+    AMBIENT_OCCLUSION = ("ao",)
     BUMP = ("bump",)
     DIFFUSE = ("col", "diff")
     DISPLACEMENT = ("disp",)
@@ -112,6 +113,7 @@ class MAP(enum.Enum) :
         return \
             {
                 MAP.ALPHA : "Alpha",
+                # MAP.AMBIENT_OCCLUSION should not occur
                 MAP.BUMP : "Normal", # after putting through a Bump node
                 MAP.DIFFUSE : "Base Color",
                 MAP.ROUGHNESS : "Roughness",
@@ -234,6 +236,12 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             ),
         default = USE_DISPLACEMENT.MATERIAL.idstr
       )
+    load_unused : bpy.props.BoolProperty \
+      (
+        name = "Load Unused Maps",
+        description = "add nodes for maps not actually used in material",
+        default = False
+      )
 
     def execute(self, context) :
         temp_dir = None
@@ -267,9 +275,10 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
               )
               # Note it doesn’t matter if user chooses duplicates, as only
               # the first occurrence of each map type has effect.
-            load_component = \
+            use_component = \
                 {
                     MAP.ALPHA : self.use_alpha,
+                    MAP.AMBIENT_OCCLUSION : False,
                     MAP.DIFFUSE : self.use_diffuse,
                     MAP.SPECULAR : self.use_specular,
                     MAP.NORMAL : MAP.NORMAL in map_preference,
@@ -277,6 +286,11 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     MAP.ROUGHNESS : self.use_roughness,
                     MAP.DISPLACEMENT : MAP.DISPLACEMENT in map_preference,
                 }
+            load_component = dict \
+              (
+                (k, use_component[k] or self.load_unused)
+                for k in use_component
+              )
             components = {}
             name_pat = r"^.+_([a-zA-Z]+)(?:_(\d+)k)?\..+$"
             img_size = None
@@ -304,7 +318,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             if len(components) == 0 :
                 raise Failure("No suitable texture components found.")
             #end if
-            map_preference = tuple(k for k in map_preference if k in components)
+            map_preference = tuple(k for k in map_preference if k in components and use_component[k])
             if len(map_preference) != 0 :
                 map_preference = map_preference[0]
             else :
@@ -363,7 +377,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
             #end new_image_texture_node
 
             def add_bump_convert_nodes(texture_output, extra_nodes_location) :
-                # adds nodes for converting a bump map to a normal map.
+                # adds a node for converting a bump map to a normal map.
                 bump_convert = material_tree.nodes.new("ShaderNodeBump")
                 bump_convert.location = extra_nodes_location
                 material_tree.links.new \
@@ -406,6 +420,8 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                                 self.use_displacement == USE_DISPLACEMENT.MATERIAL_BUMP.idstr
                             )
                         ]
+                +
+                    (MAP.AMBIENT_OCCLUSION,)
             ) :
               # Go according to ordering of input nodes on Principled BSDF,
               # to avoid wires crossing.
@@ -424,17 +440,20 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                     if add_special_nodes != None :
                         output_terminal = add_special_nodes(output_terminal, extra_nodes_location)
                     #end if
-                    material_tree.links.new \
-                      (
-                        output_terminal,
-                        main_shader.inputs[use_map.principled_bsdf_input_name]
-                      )
+                    if use_component[map] :
+                        material_tree.links.new \
+                          (
+                            output_terminal,
+                            main_shader.inputs[use_map.principled_bsdf_input_name]
+                          )
+                    #end if
                 #end for
             #end for
             material_output = material_tree.nodes.new("ShaderNodeOutputMaterial")
             material_output.location = (850, 0)
             material_tree.links.new(main_shader.outputs[0], material_output.inputs[0])
             if MAP.ALPHA in components :
+                # should be no harm doing this even if not use_component[MAP.ALPHA].
                 material.blend_method = "BLEND"
             #end if
             if (
