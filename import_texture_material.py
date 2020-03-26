@@ -37,8 +37,8 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (1, 4, 0),
-        "blender" : (2, 81, 0),
+        "version" : (1, 5, 0),
+        "blender" : (2, 82, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
         "warning" : "",
@@ -242,6 +242,52 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
         description = "add nodes for maps not actually used in material",
         default = False
       )
+    texture_interpolation : bpy.props.EnumProperty \
+      (
+        name = "Texture Interpolation",
+        description = "how to interpolate pixels when rescaling the texture",
+        items =
+            (
+               ("Linear", "Linear", "simple linear interpolation"),
+               ("Closest", "Closest", "use the closest-neighbour sample"),
+               ("Cubic", "Cubic", "bicubic interpolation using surrounding neighbours"),
+               ("Smart", "Smart", "bicubic upscaling and bilinear downscaling (OSL only)"),
+            ),
+        default = "Linear",
+      )
+    texture_projection : bpy.props.EnumProperty \
+      (
+        name = "Texture Projection",
+        description = "how the 2D texture is projected onto the 3D surface",
+        items =
+            (
+                ("FLAT", "Flat", "flat projection"),
+                ("BOX", "Box", "projection onto the six faces of a cube"),
+                ("SPHERE", "Sphere", "spherically around the Z-axis"),
+                ("TUBE", "Tube", "tubularly around the Z-axis"),
+            ),
+        default = "FLAT",
+      )
+    texture_projection_blend : bpy.props.FloatProperty \
+      (
+        name = "Projection Blend",
+        description = "blend factor at texture seams",
+        min = 0,
+        max = 1,
+        default = 0,
+      )
+    texture_extension : bpy.props.EnumProperty \
+      (
+        name = "Texture Extension",
+        description = "how the texture is extended beyond its bounds",
+        items =
+            (
+                ("REPEAT", "Repeat", "the texture repeats"),
+                ("EXTEND", "Extend", "the edge of the texture is extended"),
+                ("CLIP", "Clip", "the area beyond the bounds are left transparent"),
+            ),
+        default = "REPEAT",
+      )
 
     def execute(self, context) :
         temp_dir = None
@@ -369,6 +415,10 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                 image = load_image(map)
                 tex_image = material_tree.nodes.new("ShaderNodeTexImage")
                 tex_image.image = image
+                tex_image.interpolation = self.texture_interpolation
+                tex_image.projection = self.texture_projection
+                tex_image.projection_blend = self.texture_projection_blend
+                tex_image.extension = self.texture_extension
                 tex_image.location = tuple(map_location)
                 material_tree.links.new(tex_image.inputs[0], fanout.outputs[0])
                 map_location[1] -= 300
