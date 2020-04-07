@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<HTML>
+<HEAD>
+<TITLE>Import Texture Material for Blender User Guide</TITLE>
+
+<STYLE TYPE="text/css">
+div.h1
+  {
+	font-size : x-large;
+	font-weight : bold;
+	text-align : center;
+	width : 80%;
+  } /*div.h1*/
+div.h2
+  {
+	font-size : large;
+	font-weight : bold;
+  } /*div.h2*/
+div.h3
+  {
+	font-weight : bold;
+  } /*div.h3*/
+div.figure
+  {
+    text-align : center;
+  } /*div.figure*/
+
+a
+  {
+	font-weight : bold;
+	color : #000080;
+	text-decoration : none;
+  } /*a*/
+
+.key
+  {
+    background : #e0e0e0;
+    padding : 1pt;
+    border : 1pt solid black;
+    font-weight : bold;
+  } /*.key*/
+</STYLE>
+</HEAD>
+<BODY STYLE="background-color : #F4F4F0">
+
+<DIV CLASS="h1">Import Texture Material for Blender 1.5 User Guide<BR>
+<A HREF="mailto:&quot;Lawrence D'Oliveiro&quot; &lt;ldo@geek-central.gen.nz&gt;">Lawrence D&#8217;Oliveiro</A><BR>
+2020 April 8</DIV>
+<DIV STYLE="position : fixed; height : auto; width : 20%; top : 1em; right : 1em; left : auto; background-color : #E8E8E0">Table of Contents
+<OL>
+<LI><A HREF="#Introduction">Introduction</A>
+<LI><A HREF="#Installation">Installation</A>
+<LI><A HREF="#BasicUsage">Usage&#8212;Basic</A>
+<LI><A HREF="#NewMaterial">Nothing Happens?</A>
+<LI><A HREF="#ImportOptions">Import Options</A>
+</OL>
+</DIV>
+
+<DIV STYLE="width : 78%">
+
+<DIV CLASS="h2"><A NAME="Introduction"></A>Introduction</DIV>
+<P>Import Texture Material is an addon for <A HREF="http://www.blender.org/">Blender</A> 2.82 to
+generate material node graphs from texture map archives downloaded from sites like
+<A HREF="https://texturehaven.com/">texturehaven.com</A> and
+<A HREF="https://cc0textures.com">cc0textures.com</A>. It may work with similar archives
+downloaded from other sites; the important thing is that the various component image
+files inside the archive are named according to a meaningful convention. The ones
+from <TT>texturehaven.com</TT> that I have tried all work; a few from <TT>cc0textures.com</TT>
+have odd naming conventions which cause confusion, but the rest are OK.
+
+<DIV CLASS="h2"><A NAME="Installation"></A>Installation</DIV>
+<P>To install Import Texture Material for Blender, launch Blender, bring up the
+User Preferences window, select the Add-Ons tab, and click the &#8220;Install Add-Ons&#8221;
+button. In the file selector dialog that comes up find your way to the directory
+containing the <TT>import_texture_material.py</TT> file, select it, and click the
+&#8220;Install Add-On...&#8221; button. This will take you back to Blender&#8217;s
+User Preferences window, where you should find that Import Texture Material is now listed among
+the available add-ons, which you can enable for the current session by ticking its
+checkbox.
+
+<DIV CLASS="h2"><A NAME="BasicUsage"></A>Usage&#8212;Basic</DIV>
+<P>Once the addon has been enabled for the current document, you should see an
+additional &#8220;Texture Material&#8221; menu item appear in your File→Import menu.
+
+<P>Selecting this menu item will bring up a standard Blender file selector, with some
+additional custom items at the upper right.
+
+<P>You can experiment with the effect of these <A HREF="#ImportOptions">later</A>. For now,
+navigate to the appropriate place where you downloaded a <TT>.zip</TT> file from one of the
+abovementioned texture sites, and open it.
+
+<P>If the texture archive was successfully loaded, you should now be returned to your
+document.
+
+<DIV CLASS="h2"><A NAME="NewMaterial"></A>Nothing Happens?</DIV>
+
+<P>At this point, nothing appears to have changed. But if you select an object
+in the 3D View and look in the Materials tab in the Properties window, you should
+see a new material appear, with a user count of 0, with its name taken from that of
+the <TT>.zip</TT> file you opened:
+<DIV CLASS="figure"><IMG SRC="NewMaterial.png" ALT="New material available"></DIV>
+
+<P>Select this material to apply it to the selected object. In the Shader Editor,
+you can see more details about the material that has been created:
+
+<DIV CLASS="figure"><IMG SRC="MaterialNodeGraph.png" STYLE="width:100%" ALT="Material node graph"></DIV>
+
+<P>All the component images that were recognized by the addon are in a column in the
+middle of the node graph, connected in some way to the Principled Shader on the right
+to make up the complete material. On the left, the common source of texture coordinates
+is fed to the image textures via a Vector Mapping node and a Reroute node; this
+conveniently allows you to affect the coordinate source for all the textures at once,
+by changing the Mapping parameters or even putting a different input into the Reroute node.
+
+<P>But of course, you are free to edit this node graph however you like.
+
+<DIV CLASS="h2"><A NAME="ImportOptions"></A>Import Options</DIV>
+
+<P>Going back to the custom items in the file selector dialog:
+
+<DIV CLASS="figure"><IMG SRC="FileSelectorCustom.png" ALT="File selector with custom items"></DIV>
+
+<P>These specify various
+options that control the automatic construction of the node graph. Checkboxes allow
+you to omit components that would normally be included, or include ones that the
+addon doesn’t know how to use (currently this is just the Ambient Occlusion map),
+or wouldn’t normally use (see below).
+
+<P>Elaborations of the basic object geometry can be specified in three ways: as a
+Normal map, a Bump map, or a Displacement map. This addon treats Bump and
+Displacement maps as equivalent; they can be converted to Normal maps via a Bump Map
+node, or fed to the Displacement terminal of the Material Output node. Or, another
+way to use these two would be via a Displace modifier on the object.
+
+<P>Specifying more than one of these three would seem to be redundant; this is why
+the addon allows you to specify the preference order for including one of these,
+among those available. Or you can check the “Load Unused Maps” box to bring them all
+in, then connect them up in the node graph yourself.
+
+<P>The Texture Interpolation/Projection/Extension and Blend settings offer a
+convenient way to specify these settings for all the Image Texture nodes at once, at
+creation time. Blender does not (currently) offer a convenient way to change
+these for multiple Image Texture nodes at once after they have been created.
+
+</DIV>
+</BODY>
