@@ -23,6 +23,7 @@ div.h3
 div.figure
   {
     text-align : center;
+	width : 80%;
   } /*div.figure*/
 
 a
@@ -31,6 +32,27 @@ a
 	color : #000080;
 	text-decoration : none;
   } /*a*/
+
+table
+  {
+	border : 1px solid #808080;
+	border-collapse : collapse;
+	  /* following for centring table, taken from https://www.granneman.com/webdev/coding/css/centertables */
+	margin-left : auto;
+	margin-right : auto;
+  } /*table*/
+
+table td, table th
+  {
+	border : 1px solid #808080;
+	padding : 0.2em;
+	text-align : center;
+  } /*table td, table th*/
+
+pre
+  {
+	margin-left : 2em;
+  }
 
 .key
   {
@@ -53,6 +75,7 @@ a
 <LI><A HREF="#BasicUsage">Usage&#8212;Basic</A>
 <LI><A HREF="#NewMaterial">Nothing Happens?</A>
 <LI><A HREF="#ImportOptions">Import Options</A>
+<LI><A HREF="#ComponentNames">Component Texture Naming Conventions</A>
 </OL>
 </DIV>
 
@@ -147,6 +170,60 @@ in, then connect them up in the node graph yourself.
 convenient way to specify these settings for all the Image Texture nodes at once, at
 creation time. Blender does not (currently) offer a convenient way to change
 these for multiple Image Texture nodes at once after they have been created.
+
+<DIV CLASS="h2"><A NAME="ComponentNames"></A>Component Texture Naming Conventions</DIV>
+
+<P>The individual texture images within the <TT>.zip</TT> archive need
+to be named consistently in order to be recognized by the addon. They
+must all begin with the same basename. This is followed by an
+underscore and then a name part indicating the map that this image
+file supplies to the complete texture material. Component names currently
+recognized are:
+
+<DIV CLASS="figure">
+<TABLE>
+<TR><TH>Map</TH><TH>Valid Name Part(s) (Case-Insensitive)</TH</TR>
+<TR><TD>Alpha transparency</TD><TD><TT>mask</TT></TD></TR>
+<TR><TD>Ambient occlusion</TD><TD><TT>ao</TT></TD></TR>
+<TR><TD>Bump</TD><TD><TT>bump</TT></TD></TR>
+<TR><TD>Diffuse colour</TD><TD><TT>col</TT>, <TT>diff</TT></TD></TR>
+<TR><TD>Displacement</TD><TD><TT>disp</TT></TD></TR>
+<TR><TD>Normal</TD><TD><TT>nor</TT>, <TT>normal</TT>, <TT>nrm</TT></TD></TR>
+<TR><TD>Roughness</TD><TD><TT>rgh</TT>, <TT>rough</TT>, <TT>roughness</TT></TD></TR>
+<TR><TD>Specular</TD><TD><TT>met</TT>, <TT>spec</TT></TD></TR>
+</TABLE>
+</DIV>
+
+<P>For instance, here is the output of the <TT>lsar -l</TT> command on the <TT>.zip</TT>
+archive downloaded from <TT>texturehaven.com</TT> that was imported in the above
+example:
+
+<PRE>bark_brown_02_1k_png.zip: Zip
+     Flags  File size   Ratio  Mode  Date       Time   Name
+     =====  ==========  =====  ====  ========== =====  ====
+  0. -----      411487   0.0%  None  2018-12-21 23:11  bark_brown_02_spec_1k.png
+  1. -----     1739565   0.0%  None  2018-12-21 23:08  bark_brown_02_disp_1k.png
+  2. -----      978422   0.0%  None  2018-12-21 23:09  bark_brown_02_ao_1k.png
+  3. -----     2334535   0.0%  None  2018-12-21 23:10  bark_brown_02_diff_1k.png
+  4. -----      944390   0.0%  None  2018-12-21 23:09  bark_brown_02_bump_1k.png
+  5. -----      727782   0.0%  None  2018-12-21 23:09  bark_brown_02_rough_1k.png
+  6. -----     2436328   0.0%  None  2018-12-21 23:10  bark_brown_02_nor_1k.png
+(Flags: D=Directory, R=Resource fork, L=Link, E=Encrypted, @=Extended attributes)
+</PRE>
+
+<P>Here is an example from <TT>cc0textures.com</TT> which also works:
+
+<PRE>[2K]Bark02.zip: Zip
+     Flags  File size   Ratio  Mode  Date       Time   Name
+     =====  ==========  =====  ====  ========== =====  ====
+  0. -----     1626503   0.2%  Defl  2018-04-12 12:24  Bark02_AO.jpg
+  1. -----     3390132   0.0%  None  2018-04-12 12:24  Bark02_col.jpg
+  2. -----     1001782   0.0%  Defl  2018-04-12 12:24  Bark02_disp.jpg
+  3. -----     4569899   0.0%  None  2018-04-12 12:24  Bark02_nrm.jpg
+  4. -----     2373316   0.0%  Defl  2018-04-12 12:24  Bark02_rgh.jpg
+(Flags: D=Directory, R=Resource fork, L=Link, E=Encrypted, @=Extended attributes)
+(Mode: Defl=Deflate)
+</PRE>
 
 </DIV>
 </BODY>
