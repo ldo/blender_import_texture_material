@@ -37,7 +37,7 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (1, 5, 0),
+        "version" : (1, 5, 1),
         "blender" : (2, 82, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
@@ -156,12 +156,6 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
     bl_idname = "material.import_texture"
     bl_label = "Import Texture Material"
 
-    files : bpy.props.CollectionProperty \
-      (
-        name = "File Path",
-        description = "Texture Archive File",
-        type = bpy.types.OperatorFileListElement
-      )
     use_diffuse : bpy.props.BoolProperty \
       (
         name = "Diffuse Colour",
