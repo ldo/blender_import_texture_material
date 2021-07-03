@@ -37,8 +37,8 @@ bl_info = \
     {
         "name" : "Import Texture Material",
         "author" : "Lawrence D'Oliveiro <ldo@geek-central.gen.nz>",
-        "version" : (1, 5, 2),
-        "blender" : (2, 93, 0),
+        "version" : (1, 5, 1),
+        "blender" : (2, 82, 0),
         "location" : "File > Import",
         "description" : "imports a complete texture material from an archive file.",
         "warning" : "",
@@ -392,7 +392,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                 namestr = components[map][0]
                 image.name = "%s_%s" % (material_name, namestr)
                 if not map.is_colour :
-                    image.colorspace_settings.name = "Linear"
+                    image.colorspace_settings.name = "Non-Color"
                 #end if
                 image.pack()
                 # wipe all traces of original temporary file path
