@@ -491,7 +491,7 @@ class ImportTextureMaterial(bpy.types.Operator, bpy_extras.io_utils.ImportHelper
                             main_shader.inputs[use_map.principled_bsdf_input_name]
                           )
                     #end if
-                #end for
+                #end if
             #end for
             material_output = material_tree.nodes.new("ShaderNodeOutputMaterial")
             material_output.location = (850, 0)
